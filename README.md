@@ -1,3 +1,5 @@
+<p style="text-align: center;" data-ke-size="size16">자세한 정보는 : <span style="background-color: #ffffff; color: #1c1c1c; text-align: start;"><a href="https://rubykor.tistory.com/3" target="_blank" rel="noopener&nbsp;noreferrer">https://github.com/pgh268400/NWebtoon_Downloader</a></span></p>
+<p style="text-align: center;" data-ke-size="size16">&nbsp;</p>
 <p style="text-align: center;" data-ke-size="size16"><span style="background-color: #ffffff; color: #1c1c1c; text-align: start;">해당 프로그램은 윈도에 설치 필요 없는 단독 실행. exe입니다.</span></p>
 <p style="text-align: center;" data-ke-size="size16">&nbsp;</p>
 <p style="text-align: center;" data-ke-size="size16">&nbsp;</p>
