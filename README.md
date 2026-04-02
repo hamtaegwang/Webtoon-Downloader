@@ -27,4 +27,4 @@
 <p style="text-align: center;" data-ke-size="size16"><b>일절 책임을 지지 않습니다. (면책 조항)</b></p>
 <p style="text-align: center;" data-ke-size="size16">&nbsp;</p>
 <p style="text-align: center;" data-ke-size="size16">&nbsp;</p>
-<h2 style="text-align: center;" data-ke-size="size26"><a href="https://rubykor.tistory.com/2" target="_blank" rel="noopener">다운로드</a></h2>
+<h2 style="text-align: center;" data-ke-size="size26"><a href="https://rubykor.tistory.com/3" target="_blank" rel="noopener">다운로드</a></h2>
