@@ -39,15 +39,18 @@
 
 ---
 
-## 📦 다운로드 (Download)
+## 📦 다운로드 및 코드 서명 (Download & Code Signing)
 
 Windows 사용자라면 별도의 Python 설치나 복잡한 압축 해제 없이 **단 하나의 공인 서명 실행 파일**만 다운로드하여 즉시 사용할 수 있습니다.
 
-- 👉 **[최신 릴리즈 다운로드 (GitHub Releases)](https://github.com/hamtaegwang/Webtoon-Downloader/releases)**
-  - 다운로드 파일: `Webtoon Downloader v{version}.exe` (공인 서명 완료된 단일 파일)
+- 👉 **[Download Latest Release (GitHub Releases)](https://github.com/hamtaegwang/Webtoon-Downloader/releases)**
+  - Standalone Executable: `Webtoon Downloader v{version}.exe`
 
-> [!NOTE]
-> 코드 서명 파이프라인 구성 및 SignPath 연동 가이드는 [`docs/SIGNPATH_SETUP_GUIDE.md`](docs/SIGNPATH_SETUP_GUIDE.md)를 참고하세요.
+> **Code Signing Notice**:  
+> Free code signing provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org).  
+> Windows executables are digitally signed using a trusted Authenticode certificate to ensure authenticity, integrity, and seamless execution on Windows 11 Smart App Control (SAC) and Microsoft Defender SmartScreen.
+>
+> *(자세한 파이프라인 연동 가이드는 [`docs/SIGNPATH_SETUP_GUIDE.md`](docs/SIGNPATH_SETUP_GUIDE.md)를 참고하세요.)*
 
 ---
 
