@@ -1,0 +1,139 @@
+name: Build, Sign and Release
+
+on:
+  push:
+    tags:
+      - 'v*' # v1.0.5 등 버전 태그 푸시 시 실행 (정식 릴리즈)
+  workflow_dispatch: # GitHub 웹 콘솔에서 수동 테스트 실행 지원 (테스트 서명)
+
+permissions:
+  contents: write # GitHub Release 생성 및 업로드 권한
+  actions: read   # Artifact 정보 확인 권한
+
+jobs:
+  build-and-sign:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Determine Version and Signing Policy
+        id: prep_env
+        shell: bash
+        run: |
+          # 1. 버전 결정 (태그 푸시인 경우 태그에서 추출, 수동 실행인 경우 코드에서 추출)
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION=${GITHUB_REF_NAME#v}
+            POLICY="${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || secrets.SIGNPATH_SIGNING_POLICY_SLUG || 'release-signing' }}"
+          else
+            VERSION=$(python -c "import generate_version_info; print(generate_version_info.get_app_version())")
+            POLICY="${{ vars.SIGNPATH_TEST_SIGNING_POLICY_SLUG || secrets.SIGNPATH_TEST_SIGNING_POLICY_SLUG || 'test-signing' }}"
+          fi
+
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "SIGNING_POLICY=$POLICY" >> $GITHUB_ENV
+          echo "Release version : $VERSION"
+          echo "Signing policy  : $POLICY"
+
+      - name: Build Single EXE with PyInstaller
+        shell: pwsh
+        run: |
+          Write-Host "버전 $env:VERSION 정보 및 아이콘 리소스 생성 중..."
+          python clean_logo.py
+          python generate_version_info.py
+
+          Write-Host "PyInstaller 단일 실행 파일(.exe) 빌드 시작..."
+          python -m PyInstaller "Webtoon Downloader.spec" --noconfirm
+
+          $exeFile = Get-ChildItem -Path "dist" -Filter "*.exe" | Select-Object -First 1
+          if (-not $exeFile) {
+            Write-Error "dist 폴더에서 생성된 .exe를 찾을 수 없습니다."
+            exit 1
+          }
+          Write-Host "빌드 성공: $($exeFile.FullName)"
+
+          # SignPath 서명 요청을 위한 폴더 준비
+          New-Item -ItemType Directory -Path "to-sign" -Force
+          Copy-Item $exeFile.FullName -Destination "to-sign/Webtoon_Downloader.exe"
+
+      # 1. 미서명 바이너리를 GitHub Artifacts로 업로드
+      - name: Upload Unsigned Artifact
+        id: upload-unsigned-artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-binary
+          path: to-sign/Webtoon_Downloader.exe
+          retention-days: 1
+
+      # 2. SignPath Foundation에 서명 요청 제출 및 대기
+      - name: Submit Signing Request to SignPath
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: '${{ secrets.SIGNPATH_API_TOKEN }}'
+          organization-id: '${{ secrets.SIGNPATH_ORGANIZATION_ID || vars.SIGNPATH_ORGANIZATION_ID }}'
+          project-slug: '${{ vars.SIGNPATH_PROJECT_SLUG || secrets.SIGNPATH_PROJECT_SLUG || 'webtoon-downloader' }}'
+          signing-policy-slug: '${{ env.SIGNING_POLICY }}'
+          github-artifact-id: '${{ steps.upload-unsigned-artifact.outputs.artifact-id }}'
+          wait-for-completion: true
+          output-artifact-directory: 'signed-output'
+
+      # 3. 서명된 파일 검증 (Authenticode Signature 확인)
+      - name: Verify Authenticode Signature
+        shell: pwsh
+        run: |
+          $signedExe = Get-ChildItem -Path "signed-output" -Filter "*.exe" -Recurse | Select-Object -First 1
+          if (-not $signedExe) {
+            Write-Error "서명된 실행 파일을 찾을 수 없습니다."
+            exit 1
+          }
+
+          $sig = Get-AuthenticodeSignature $signedExe.FullName
+          Write-Host "================== Authenticode Signature =================="
+          Write-Host "Status:  $($sig.Status)"
+          Write-Host "Signer:  $($sig.SignerCertificate.Subject)"
+          Write-Host "Issuer:  $($sig.SignerCertificate.Issuer)"
+          Write-Host "Time:    $($sig.SignerCertificate.NotBefore) ~ $($sig.SignerCertificate.NotAfter)"
+          Write-Host "============================================================"
+
+          if ($sig.Status -ne "Valid") {
+            Write-Error "디지털 서명이 유효하지 않습니다! 상태: $($sig.Status)"
+            exit 1
+          }
+
+          # 최종 릴리즈용 단일 .exe 파일명으로 준비
+          $finalName = "Webtoon Downloader v${env:VERSION}.exe"
+          New-Item -ItemType Directory -Path "release-dist" -Force
+          Copy-Item $signedExe.FullName -Destination "release-dist/$finalName"
+          Write-Host "최종 서명 파일 준비 완료: release-dist/$finalName"
+
+      # 4. 워크플로우 실행 결과 아티팩트로 서명된 .exe 보관 (수동 테스트 및 즉시 다운로드용)
+      - name: Upload Signed Executable Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Webtoon_Downloader_v${{ env.VERSION }}_Signed_EXE
+          path: release-dist/*.exe
+          retention-days: 14
+
+      # 5. GitHub Releases에 공인 서명된 단일 .exe만 배포 (태그 푸시 시)
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Webtoon Downloader v${{ env.VERSION }}"
+          files: release-dist/*.exe
+          generate_release_notes: true
+          draft: false
+          prerelease: false
